@@ -7,8 +7,7 @@ function seedUsers() {
   const hash = bcrypt.hashSync('changeme123', 10);
   db.prepare(`INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)`)
     .run('admin', hash, 'Admin', 'admin');
-  console.log('Created default login -> username: admin  password: changeme123 (change this after first login');
-}
+  console.log('Created default login -> username: admin  password: changeme123 (change this after first login)');}
 
 function seedCatalog() {
   const count = db.prepare('SELECT COUNT(*) AS n FROM items').get().n;
