@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventory</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="/vendor/echarts.min.js"></script>
+  <script src="/vendor/echarts-gl.min.js"></script>
+</head>
+<body>
+  <div id="app">
+
+    <!-- LOGIN -->
+    <div class="login-screen" id="loginScreen">
+      <div class="login-card">
+        <div class="login-logo">📦</div>
+        <h1>Inventory Control</h1>
+        <p class="sub">Sign in to manage stock</p>
+        <form id="loginForm">
+          <label for="username">Username</label>
+          <input id="username" name="username" autocomplete="username" required />
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+          <div class="login-error" id="loginError"></div>
+          <button class="btn-primary" type="submit">Sign In</button>
+        </form>
+        <div class="login-hint">Default login: admin / changeme123 — change it after you sign in.</div>
+      </div>
+    </div>
+
+    <!-- APP SHELL -->
+    <div class="shell" id="shell" style="display:none;">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">📦</div>
+          <div class="brand-text">
+            <strong>Inventory Control</strong>
+            <span>Stock &amp; reporting</span>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item" data-view="dashboard"><span class="ic">◆</span> Dashboard</button>
+          <button class="nav-item" data-view="inventory"><span class="ic">▤</span> Inventory</button>
+          <button class="nav-item" data-view="import"><span class="ic">⇩</span> Import from Wilmax</button>
+          <button class="nav-item" data-view="reports"><span class="ic">◈</span> Reports</button>
+          <button class="nav-item" data-view="settings"><span class="ic">⚙</span> Settings</button>
+        </nav>
+        <div class="nav-footer">
+          <div class="user-chip">
+            <div class="user-avatar" id="userAvatar">A</div>
+            <span id="userName">—</span>
+          </div>
+          <button class="nav-item" id="logoutBtn"><span class="ic">⏻</span> Sign out</button>
+        </div>
+      </aside>
+
+      <div class="main">
+        <div class="topbar">
+          <div>
+            <h2 id="viewTitle">Dashboard</h2>
+            <div class="sub" id="viewSub">Overview of your stock</div>
+          </div>
+          <button class="btn btn-gold" id="quickAddBtn">+ Add Item</button>
+        </div>
+
+        <div class="content">
+
+          <!-- DASHBOARD -->
+          <section class="view" id="view-dashboard">
+            <div class="kpi-row">
+              <div class="kpi-card">
+                <div class="label">Items Tracked</div>
+                <div class="value gold" id="kpiItems">—</div>
+                <div class="delta" id="kpiItemsSub">&nbsp;</div>
+              </div>
+              <div class="kpi-card">
+                <div class="label">Stock Value (cost)</div>
+                <div class="value" id="kpiValue">—</div>
+                <div class="delta" id="kpiValueSub">&nbsp;</div>
+              </div>
+              <div class="kpi-card">
+                <div class="label">Low Stock</div>
+                <div class="value warn" id="kpiLow">—</div>
+                <div class="delta">at or below reorder level</div>
+              </div>
+              <div class="kpi-card">
+                <div class="label">Out of Stock</div>
+                <div class="value danger" id="kpiOut">—</div>
+                <div class="delta">needs immediate reorder</div>
+              </div>
+            </div>
+
+            <div class="charts-row">
+              <div class="panel">
+                <div class="panel-header">
+                  <h3>Stock Value by Category</h3>
+                  <span class="hint">3D · cost basis</span>
+                </div>
+                <div class="chart-box tall" id="chart3dCategory"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-header">
+                  <h3>Category Mix</h3>
+                  <span class="hint">3D · units on hand</span>
+                </div>
+                <div class="chart-box tall" id="chart3dPie"></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Stock Movement — last 30 days</h3>
+                <span class="hint">inflow vs. outflow</span>
+              </div>
+              <div class="chart-box" id="chartTrend"></div>
+            </div>
+
+            <div class="panel" id="lowStockPanel">
+              <div class="panel-header">
+                <h3>Needs Attention</h3>
+                <span class="hint">low &amp; out-of-stock items</span>
+              </div>
+              <div id="lowStockList"></div>
+            </div>
+          </section>
+
+          <!-- INVENTORY -->
+          <section class="view" id="view-inventory">
+            <div class="table-toolbar">
+              <input id="invSearch" placeholder="Search name or SKU…" />
+              <select id="invCategoryFilter"><option value="">All categories</option></select>
+              <select id="invStatusFilter">
+                <option value="">All statuses</option>
+                <option value="low">Low stock</option>
+                <option value="out">Out of stock</option>
+              </select>
+              <button class="btn" id="manageCategoriesBtn">Manage Categories</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th><th>SKU</th><th>Category</th><th>Qty</th><th>Status</th>
+                    <th>Unit Cost</th><th>Unit Price</th><th>Stock Value</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="invTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="invEmpty" style="display:none;">No items yet — add one or import from Wilmax.</div>
+          </section>
+
+          <!-- IMPORT -->
+          <section class="view" id="view-import">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Import a Wilmax Export</h3>
+                <span class="hint">Inventario → ⋯ → Exportar a Excel</span>
+              </div>
+              <p style="color:var(--text-dim); font-size:13px; line-height:1.6; margin-top:0;">
+                Wilmax doesn't offer a live sync (no public API), so this is the reliable path: export your inventory
+                report from Wilmax to Excel, then drop that file here. Items are matched by SKU/barcode first, then
+                by name — quantity, cost and price are updated, and anything new is added automatically.
+              </p>
+              <div class="dropzone" id="dropzone">
+                <div class="big-ic">⇪</div>
+                <div><strong>Click to choose a file</strong> or drag it here</div>
+                <div class="hint" style="margin-top:6px;">.xlsx or .xls</div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" hidden />
+              </div>
+
+              <div id="mappingSection" style="display:none;">
+                <div class="section-title">Column Mapping</div>
+                <div class="hint" id="mappingHint" style="margin-bottom:10px;"></div>
+                <div class="mapping-grid">
+                  <div><label>Item name</label><select id="mapName"></select></div>
+                  <div><label>SKU / barcode</label><select id="mapSku"></select></div>
+                  <div><label>Quantity</label><select id="mapQuantity"></select></div>
+                  <div><label>Unit cost</label><select id="mapUnitCost"></select></div>
+                  <div><label>Unit price</label><select id="mapUnitPrice"></select></div>
+                </div>
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-dim); margin:14px 0;">
+                  <input type="checkbox" id="createMissing" checked style="width:auto;" />
+                  Add items found in the file that don't exist yet
+                </label>
+                <div style="display:flex; gap:10px;">
+                  <button class="btn btn-gold" id="commitImportBtn">Apply Import</button>
+                  <button class="btn" id="cancelImportBtn">Cancel</button>
+                </div>
+                <div class="import-summary" id="importResult" style="display:none;"></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header"><h3>Import History</h3></div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>File</th><th>Date</th><th>Rows</th><th>Matched</th><th>Created</th><th>Skipped</th></tr></thead>
+                  <tbody id="importHistoryBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- REPORTS -->
+          <section class="view" id="view-reports">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Top Movers</h3>
+                <div class="pill-tabs" id="moversRange">
+                  <button data-days="7">7d</button>
+                  <button data-days="30" class="active">30d</button>
+                  <button data-days="90">90d</button>
+                </div>
+              </div>
+              <div class="chart-box tall" id="chart3dMovers"></div>
+            </div>
+            <div class="charts-row">
+              <div class="panel">
+                <div class="panel-header"><h3>Stock Value by Category</h3></div>
+                <div class="chart-box" id="chartReportCategory"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-header"><h3>Movement Trend</h3></div>
+                <div class="chart-box" id="chartReportTrend"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SETTINGS -->
+          <section class="view" id="view-settings">
+            <div class="panel" style="max-width:420px;">
+              <div class="panel-header"><h3>Change Password</h3></div>
+              <form id="passwordForm">
+                <div class="form-grid">
+                  <div class="full"><label>Current password</label><input type="password" id="curPass" required /></div>
+                  <div class="full"><label>New password</label><input type="password" id="newPass" required minlength="6" /></div>
+                </div>
+                <div class="modal-actions" style="justify-content:flex-start;">
+                  <button class="btn btn-gold" type="submit">Update Password</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Item Modal -->
+  <div class="modal-backdrop" id="itemModalBackdrop">
+    <div class="modal">
+      <h3 id="itemModalTitle">Add Item</h3>
+      <form id="itemForm">
+        <input type="hidden" id="itemId" />
+        <div class="form-grid">
+          <div class="full"><label>Name *</label><input id="fName" required /></div>
+          <div><label>SKU / Barcode</label><input id="fSku" /></div>
+          <div><label>Category</label><select id="fCategory"></select></div>
+          <div><label>Quantity</label><input id="fQuantity" type="number" step="any" /></div>
+          <div><label>Unit (e.g. lb, case)</label><input id="fUnit" placeholder="unit" /></div>
+          <div><label>Reorder Level</label><input id="fReorderLevel" type="number" step="any" /></div>
+          <div><label>Unit Cost</label><input id="fUnitCost" type="number" step="any" /></div>
+          <div><label>Unit Price</label><input id="fUnitPrice" type="number" step="any" /></div>
+          <div class="full"><label>Supplier</label><input id="fSupplier" /></div>
+          <div class="full"><label>Notes</label><textarea id="fNotes" rows="2"></textarea></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="itemModalCancel">Cancel</button>
+          <button type="submit" class="btn btn-gold">Save Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Categories Modal -->
+  <div class="modal-backdrop" id="catModalBackdrop">
+    <div class="modal">
+      <h3>Manage Categories</h3>
+      <div id="catList" style="margin-bottom:16px;"></div>
+      <form id="catForm" style="display:flex; gap:10px;">
+        <input id="fCatName" placeholder="New category name" style="flex:1;" required />
+        <input id="fCatColor" type="color" value="#d4a017" style="width:44px; padding:2px;" />
+        <button class="btn btn-gold" type="submit">Add</button>
+      </form>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="catModalClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Adjust Stock Modal -->
+  <div class="modal-backdrop" id="adjustModalBackdrop">
+    <div class="modal">
+      <h3 id="adjustModalTitle">Adjust Stock</h3>
+      <form id="adjustForm">
+        <div class="form-grid">
+          <div><label>Change (+/-)</label><input id="adjQty" type="number" step="any" required /></div>
+          <div><label>Reason</label>
+            <select id="adjReason">
+              <option value="manual-adjust">Manual adjustment</option>
+              <option value="restock">Restock / received</option>
+              <option value="sale-deduction">Sold / used</option>
+              <option value="waste">Waste / spoilage</option>
+              <option value="correction">Count correction</option>
+            </select>
+          </div>
+          <div class="full"><label>Note (optional)</label><input id="adjNote" /></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="adjustModalCancel">Cancel</button>
+          <button type="submit" class="btn btn-gold">Apply</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
